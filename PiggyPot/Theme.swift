@@ -11,8 +11,10 @@ enum Palette {
     /// 主题色，设置页里可一键选
     static let themes: [Item] = [
         Item(hex: "F09E2E", name: "黄"),
-        Item(hex: "FF3B30", name: "红"),
-        Item(hex: "F472B6", name: "粉")
+        Item(hex: "F472B6", name: "粉"),
+        Item(hex: "34C759", name: "绿"),
+        Item(hex: "3B82F6", name: "蓝"),
+        Item(hex: "8B5CF6", name: "紫")
     ]
 
     static let colors: [Item] = [

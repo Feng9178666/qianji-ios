@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var store: Store
@@ -6,12 +8,19 @@ struct SettingsView: View {
 
     @AppStorage("appearance") private var appearance = 0
     @AppStorage("themeHex") private var themeHex = Palette.default
+    @AppStorage("homeCardImage") private var cardImageName = ""
+
+    @State private var cardItem: PhotosPickerItem?
 
     private var customColor: Binding<Color> {
         Binding(
             get: { Color(hex: themeHex) },
             set: { themeHex = $0.hexString }
         )
+    }
+
+    private var cardImage: UIImage? {
+        ImageStore.image(cardImageName.isEmpty ? nil : cardImageName)
     }
 
     var body: some View {
@@ -28,7 +37,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    HStack(spacing: 16) {
+                    HStack(spacing: 14) {
                         ForEach(Palette.themes) { item in
                             Button {
                                 themeHex = item.hex
@@ -54,6 +63,37 @@ struct SettingsView: View {
                     Text("主题色")
                 } footer: {
                     Text("按钮、进度条、高亮都用这个颜色。")
+                }
+
+                Section {
+                    HStack(spacing: 12) {
+                        if let cardImage {
+                            Image(uiImage: cardImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 56, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                        PhotosPicker(selection: $cardItem, matching: .images) {
+                            Label(cardImageName.isEmpty ? "选一张卡片背景" : "换一张背景",
+                                  systemImage: "photo.on.rectangle.angled")
+                                .font(.system(size: 15))
+                        }
+                        Spacer()
+                        if !cardImageName.isEmpty {
+                            Button("移除") {
+                                ImageStore.delete(cardImageName)
+                                cardImageName = ""
+                                cardItem = nil
+                            }
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("首页卡片")
+                } footer: {
+                    Text("给总资产卡片换张底图，不选就用默认的。")
                 }
 
                 Section {
@@ -103,8 +143,6 @@ struct SettingsView: View {
                             .padding(.vertical, 2)
                         }
                     }
-                } footer: {
-                    Text("点这里直接打开群邀请。")
                 }
 
                 Section("关于") {
@@ -118,19 +156,46 @@ struct SettingsView: View {
                     HStack {
                         Text("应用")
                         Spacer()
-                        Text("钱迹")
+                        Text("记一笔")
                             .foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("开发者")
+                        Spacer()
+                        Text("Lxp")
+                            .foregroundStyle(.secondary)
+                    }
+                    if let url = URL(string: "https://ac.6778.top") {
+                        Link(destination: url) {
+                            HStack {
+                                Text("官网")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Text("ac.6778.top")
+                                    .foregroundStyle(.secondary)
+                                Image(systemName: "arrow.up.forward")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                 }
             }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: cardItem) { _, item in
+                guard let item else { return }
+                Task { @MainActor in
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let name = ImageStore.save(data) {
+                        cardImageName = name
+                    }
+                }
+            }
         }
     }
 
     private var versionText: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 }
