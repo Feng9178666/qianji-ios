@@ -67,11 +67,11 @@ final class Store: ObservableObject {
         wallets = [
             Wallet(name: "支付宝", symbol: "wallet.pass.fill", colorHex: "1677FF",
                    initialCents: 0, isEnabled: false,
-                   iconAsset: "zfb.png",
+                   iconAsset: "zfb.jpg",
                    iconURL: "https://api.6778.top/app/zfb.png"),
             Wallet(name: "微信", symbol: "bubble.left.fill", colorHex: "07C160",
                    initialCents: 0, isEnabled: false,
-                   iconAsset: "wx.png",
+                   iconAsset: "wx.jpg",
                    iconURL: "https://api.6778.top/app/wx.png"),
             Wallet(name: "银行卡", symbol: "creditcard.fill", colorHex: "8E8E93",
                    initialCents: 0, isEnabled: false),
