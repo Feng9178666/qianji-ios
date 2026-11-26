@@ -74,7 +74,7 @@ struct HomeView: View {
                                 .resizable()
                                 .scaledToFill()
                                 .frame(width: 30, height: 30)
-                                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                                .clipShape(Circle())
                         } else {
                             Image(systemName: "plus")
                                 .font(.system(size: 19, weight: .semibold))

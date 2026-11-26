@@ -64,31 +64,42 @@ struct SettingsView: View {
                     Text("记账")
                 }
 
-                Section("外观") {
-                    PhotosPicker(selection: $avatarItem, matching: .images) {
-                        HStack(spacing: 12) {
-                            if let avatarImage {
-                                Image(uiImage: avatarImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 29, height: 29)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            } else {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 29, height: 29)
-                                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Section {
+                    HStack(spacing: 12) {
+                        PhotosPicker(selection: $avatarItem, matching: .images) {
+                            HStack(spacing: 12) {
+                                if let avatarImage {
+                                    Image(uiImage: avatarImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 29, height: 29)
+                                        .clipShape(Circle())
+                                } else {
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 29, height: 29)
+                                        .background(Color(.tertiarySystemFill), in: Circle())
+                                }
+                                Text("头像")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(.primary)
                             }
-                            Text("头像")
-                                .font(.system(size: 17))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Text(avatarImage == nil ? "未设置" : "已设置")
+                        }
+                        Spacer()
+                        if avatarImage == nil {
+                            Text("未设置")
                                 .font(.system(size: 15))
                                 .foregroundStyle(.secondary)
+                        } else {
+                            Button("恢复") {
+                                ImageStore.delete(avatarName)
+                                avatarName = ""
+                                avatarItem = nil
+                            }
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 2)
                     }
 
                     Picker("模式", selection: $appearance) {
@@ -121,6 +132,10 @@ struct SettingsView: View {
                     .padding(.vertical, 2)
 
                     ColorPicker("自定义颜色", selection: customColor, supportsOpacity: false)
+                } header: {
+                    Text("外观")
+                } footer: {
+                    Text("设了头像后，首页右上角那个加号会换成头像，点它还是记一笔。")
                 }
 
                 Section {
@@ -129,21 +144,22 @@ struct SettingsView: View {
                             Image(uiImage: cardImage)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 56, height: 40)
+                                .frame(width: 56, height: 38)
                                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         PhotosPicker(selection: $cardItem, matching: .images) {
                             Text(cardImageName.isEmpty ? "给首页卡片选张背景" : "换一张背景")
                                 .font(.system(size: 16))
+                                .foregroundStyle(.primary)
                         }
                         Spacer()
                         if !cardImageName.isEmpty {
-                            Button("移除") {
+                            Button("恢复") {
                                 ImageStore.delete(cardImageName)
                                 cardImageName = ""
                                 cardItem = nil
                             }
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundStyle(.secondary)
                         }
                     }
@@ -168,8 +184,6 @@ struct SettingsView: View {
                 } footer: {
                     if let message {
                         Text(message)
-                    } else {
-                        Text("导出成一个 JSON 文件；导入会用文件里的内容覆盖现在的记录。")
                     }
                 }
 
@@ -245,21 +259,22 @@ struct SettingsView: View {
                     message = "导出失败"
                 }
             }
-            .fileImporter(isPresented: $showImporter,
-                          allowedContentTypes: [.json, .plainText, .data, .item],
-                          allowsMultipleSelection: false) { result in
-                switch result {
-                case .success(let urls):
-                    guard let url = urls.first else { return }
-                    if let data = readImportedFile(url) {
-                        pendingImport = data
-                        showImportConfirm = true
-                    } else {
-                        message = "这个文件读不了"
+            .sheet(isPresented: $showImporter) {
+                DocumentPicker(
+                    onPick: { url in
+                        showImporter = false
+                        if let data = try? Data(contentsOf: url) {
+                            pendingImport = data
+                            showImportConfirm = true
+                        } else {
+                            message = "这个文件读不了"
+                        }
+                    },
+                    onCancel: {
+                        showImporter = false
                     }
-                case .failure:
-                    message = "没有选文件"
-                }
+                )
+                .ignoresSafeArea()
             }
             .confirmationDialog("用这份备份覆盖现在的记录？",
                                 isPresented: $showImportConfirm,
@@ -302,21 +317,6 @@ struct SettingsView: View {
         }
     }
 
-    private func readImportedFile(_ url: URL) -> Data? {
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-
-        var result: Data?
-        var coordinationError: NSError?
-        NSFileCoordinator(filePresenter: nil).coordinate(readingItemAt: url, options: [], error: &coordinationError) { target in
-            result = try? Data(contentsOf: target)
-        }
-        if result == nil {
-            result = try? Data(contentsOf: url)
-        }
-        return result
-    }
-
     private func exportBackup() {
         guard let data = store.exportData() else {
             message = "导出失败"
@@ -329,6 +329,48 @@ struct SettingsView: View {
 
     private var versionText: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+}
+
+/// 用系统文件选择器，asCopy 直接把文件复制进沙盒，避开安全作用域的坑
+struct DocumentPicker: UIViewControllerRepresentable {
+    var onPick: (URL) -> Void
+    var onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick, onCancel: onCancel)
+    }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json, .plainText, .data, .item],
+                                                   asCopy: true)
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        private let onPick: (URL) -> Void
+        private let onCancel: () -> Void
+
+        init(onPick: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+            self.onPick = onPick
+            self.onCancel = onCancel
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else {
+                onCancel()
+                return
+            }
+            onPick(url)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onCancel()
+        }
     }
 }
 
