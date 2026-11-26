@@ -20,6 +20,7 @@ struct HomeView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.themeColor) private var theme
     @AppStorage("homeCardImage") private var cardImageName = ""
+    @AppStorage("avatarImage") private var avatarName = ""
 
     @State private var showAdd = false
     @State private var selectedWallet: Wallet?
@@ -68,10 +69,17 @@ struct HomeView: View {
                     Button {
                         showAdd = true
                     } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, theme)
-                            .font(.system(size: 25))
+                        if let avatar = ImageStore.image(avatarName.isEmpty ? nil : avatarName) {
+                            Image(uiImage: avatar)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 30, height: 30)
+                                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        } else {
+                            Image(systemName: "plus")
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundStyle(theme)
+                        }
                     }
                     .buttonStyle(.plain)
                 }

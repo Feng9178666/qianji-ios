@@ -132,7 +132,8 @@ struct EntryRow: View {
                 .monospacedDigit()
                 .foregroundStyle(entry.kind == .income ? Color.green : Color.primary)
         }
-        .padding(.vertical, 10)
+        .frame(minHeight: 44)
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
     }
 

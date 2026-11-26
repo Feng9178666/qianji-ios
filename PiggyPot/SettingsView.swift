@@ -40,37 +40,6 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    HStack(spacing: 14) {
-                        PhotosPicker(selection: $avatarItem, matching: .images) {
-                            ZStack {
-                                if let avatarImage {
-                                    Image(uiImage: avatarImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                } else {
-                                    Color(.tertiarySystemFill)
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 26, weight: .light))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .frame(width: 60, height: 60)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("记一笔")
-                                .font(.system(size: 19, weight: .semibold))
-                            Text("点左边的头像可以换一张")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                Section {
                     NavigationLink {
                         AccountsView()
                             .environmentObject(store)
@@ -96,6 +65,32 @@ struct SettingsView: View {
                 }
 
                 Section("外观") {
+                    PhotosPicker(selection: $avatarItem, matching: .images) {
+                        HStack(spacing: 12) {
+                            if let avatarImage {
+                                Image(uiImage: avatarImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 29, height: 29)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            } else {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 29, height: 29)
+                                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            Text("头像")
+                                .font(.system(size: 17))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(avatarImage == nil ? "未设置" : "已设置")
+                                .font(.system(size: 15))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+
                     Picker("模式", selection: $appearance) {
                         Text("自动").tag(0)
                         Text("浅色").tag(1)
@@ -242,7 +237,7 @@ struct SettingsView: View {
             .fileExporter(isPresented: $showExporter,
                           document: exportDocument,
                           contentType: .json,
-                          defaultFilename: "记一笔-备份") { result in
+                          defaultFilename: "记一笔备份.json") { result in
                 switch result {
                 case .success:
                     message = "已导出"
@@ -251,14 +246,12 @@ struct SettingsView: View {
                 }
             }
             .fileImporter(isPresented: $showImporter,
-                          allowedContentTypes: [.json],
+                          allowedContentTypes: [.json, .plainText, .data, .item],
                           allowsMultipleSelection: false) { result in
                 switch result {
                 case .success(let urls):
                     guard let url = urls.first else { return }
-                    let accessed = url.startAccessingSecurityScopedResource()
-                    defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-                    if let data = try? Data(contentsOf: url) {
+                    if let data = readImportedFile(url) {
                         pendingImport = data
                         showImportConfirm = true
                     } else {
@@ -307,6 +300,21 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
+    }
+
+    private func readImportedFile(_ url: URL) -> Data? {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        var result: Data?
+        var coordinationError: NSError?
+        NSFileCoordinator(filePresenter: nil).coordinate(readingItemAt: url, options: [], error: &coordinationError) { target in
+            result = try? Data(contentsOf: target)
+        }
+        if result == nil {
+            result = try? Data(contentsOf: url)
+        }
+        return result
     }
 
     private func exportBackup() {
