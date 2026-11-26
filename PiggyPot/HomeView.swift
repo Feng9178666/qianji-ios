@@ -1,21 +1,6 @@
 import SwiftUI
 import UIKit
 
-/// 总资产数字滚动
-struct AnimatedMoney: View, Animatable {
-    var value: Double
-
-    var animatableData: Double {
-        get { value }
-        set { value = newValue }
-    }
-
-    var body: some View {
-        Text(Money.text(Int(value.rounded())))
-            .monospacedDigit()
-    }
-}
-
 struct HomeView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.themeColor) private var theme
@@ -27,7 +12,7 @@ struct HomeView: View {
     @State private var showAll = false
     @State private var depositWish: Wish?
     @State private var editWish: Wish?
-    @State private var animatedTotal: Double = 0
+    @State private var displayTotal = 0
 
     private var recent: [Entry] { Array(store.entries.prefix(6)) }
     private var wishes: [Wish] { store.homeWishes }
@@ -104,17 +89,28 @@ struct HomeView: View {
                 HistoryView(wallet: nil)
                     .environmentObject(store)
             }
-            .onAppear {
-                animatedTotal = 0
-                withAnimation(.easeOut(duration: 0.9)) {
-                    animatedTotal = Double(store.totalCents)
-                }
+            .task(id: store.totalCents) {
+                await countUp(to: store.totalCents)
             }
-            .onChange(of: store.totalCents) { _, newValue in
-                withAnimation(.easeOut(duration: 0.55)) {
-                    animatedTotal = Double(newValue)
-                }
+        }
+    }
+
+    /// 一格一格往上加，不是匀速插值
+    @MainActor
+    private func countUp(to target: Int) async {
+        displayTotal = 0
+        guard target != 0 else { return }
+        let steps = 26
+        for step in 1...steps {
+            try? await Task.sleep(nanoseconds: 24_000_000)
+            if Task.isCancelled { return }
+            let value = Int((Double(target) * Double(step) / Double(steps)).rounded())
+            await MainActor.run {
+                displayTotal = value
             }
+        }
+        await MainActor.run {
+            displayTotal = target
         }
     }
 
@@ -137,8 +133,11 @@ struct HomeView: View {
                     .foregroundStyle(faint)
             }
 
-            AnimatedMoney(value: animatedTotal)
+            Text(Money.text(displayTotal))
                 .font(.system(size: 40, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText(value: Double(displayTotal)))
+                .animation(.easeOut(duration: 0.12), value: displayTotal)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .foregroundStyle(primary)

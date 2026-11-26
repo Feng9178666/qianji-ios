@@ -8,6 +8,7 @@ struct WishDepositView: View {
 
     @State private var amountText = ""
     @State private var date = Date()
+    @State private var deductWalletID: UUID?
     @FocusState private var focused: Bool
 
     private var cents: Int? {
@@ -81,6 +82,17 @@ struct WishDepositView: View {
                 Section {
                     DatePicker("时间", selection: $date)
                 }
+
+                Section {
+                    Picker("从哪个账户扣", selection: $deductWalletID) {
+                        Text("不从账户扣").tag(UUID?.none)
+                        ForEach(store.enabledWallets) { wallet in
+                            Text(wallet.name).tag(Optional(wallet.id))
+                        }
+                    }
+                } footer: {
+                    Text("选账户会在这笔存钱的同时，从那个账户记一笔支出。")
+                }
             }
             .navigationTitle("存一笔")
             .navigationBarTitleDisplayMode(.inline)
@@ -103,6 +115,14 @@ struct WishDepositView: View {
     private func save() {
         guard let cents else { return }
         store.deposit(to: wish.id, cents: cents, date: date)
+
+        if let deductWalletID {
+            store.add(Entry(walletID: deductWalletID,
+                            cents: cents,
+                            kind: .expense,
+                            note: "心愿：\(wish.title)",
+                            date: date))
+        }
         dismiss()
     }
 }
