@@ -8,7 +8,9 @@ struct WalletBadge: View {
 
     var body: some View {
         Group {
-            if let text = wallet.iconURL, let url = URL(string: text), !text.isEmpty {
+            if let asset = wallet.iconAsset, let image = UIImage(named: asset) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else if let text = wallet.iconURL, let url = URL(string: text), !text.isEmpty {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image {
                         image.resizable().scaledToFill()

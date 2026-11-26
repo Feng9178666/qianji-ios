@@ -9,6 +9,9 @@ struct HomeView: View {
     @State private var showAdd = false
     @State private var selectedWallet: Wallet?
     @State private var showAll = false
+    @State private var showAddWish = false
+    @State private var depositWish: Wish?
+    @State private var editWish: Wish?
 
     private var recent: [Entry] { Array(store.entries.prefix(6)) }
 
@@ -25,6 +28,9 @@ struct HomeView: View {
                     if !store.enabledWallets.isEmpty {
                         walletsGrid
                     }
+
+                    BlockTitle(title: "心愿")
+                    wishSection
 
                     if !recent.isEmpty {
                         BlockTitle(title: "最近记录", trailing: "共 \(store.entries.count) 笔")
@@ -53,6 +59,18 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showAdd) {
                 AddEntryView()
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $showAddWish) {
+                WishEditorView(wish: nil)
+                    .environmentObject(store)
+            }
+            .sheet(item: $depositWish) { wish in
+                WishDepositView(wish: wish)
+                    .environmentObject(store)
+            }
+            .sheet(item: $editWish) { wish in
+                WishEditorView(wish: wish)
                     .environmentObject(store)
             }
             .navigationDestination(item: $selectedWallet) { wallet in
@@ -99,15 +117,20 @@ struct HomeView: View {
         }
         .padding(18)
         .background {
-            ZStack {
-                Color(.secondarySystemGroupedBackground)
-                if let image = totalCardImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                    LinearGradient(colors: [Color.black.opacity(0.18), Color.black.opacity(0.55)],
-                                   startPoint: .top, endPoint: .bottom)
+            GeometryReader { geo in
+                ZStack {
+                    Color(.secondarySystemGroupedBackground)
+                    if let image = totalCardImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                        LinearGradient(colors: [Color.black.opacity(0.18), Color.black.opacity(0.55)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
                 }
+                .frame(width: geo.size.width, height: geo.size.height)
             }
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
@@ -161,6 +184,76 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card(padding: 14, corner: 18)
+    }
+
+    // MARK: - 心愿
+
+    private var wishSection: some View {
+        VStack(spacing: 0) {
+            ForEach(store.wishes) { wish in
+                wishRow(wish)
+                Divider().padding(.leading, 44)
+            }
+            Button {
+                showAddWish = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(theme)
+                    Text("添加心愿")
+                        .font(.system(size: 15))
+                        .foregroundStyle(theme)
+                    Spacer()
+                }
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .card(padding: 16)
+    }
+
+    private func wishRow(_ wish: Wish) -> some View {
+        HStack(spacing: 12) {
+            WishIcon(wish: wish, size: 32)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(wish.title)
+                        .font(.system(size: 15))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text("\(Int(wish.progress * 100))%")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                ProgressView(value: wish.progress)
+                    .tint(Color(hex: wish.colorHex))
+                Text("\(Money.text(wish.savedCents)) / \(Money.text(wish.targetCents))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            if !wish.isDone {
+                Button {
+                    depositWish = wish
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(theme)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            editWish = wish
+        }
     }
 
     // MARK: - 最近记录

@@ -171,15 +171,20 @@ struct WishlistView: View {
         }
         .padding(16)
         .background {
-            ZStack {
-                Color(.secondarySystemGroupedBackground)
-                if let background {
-                    Image(uiImage: background)
-                        .resizable()
-                        .scaledToFill()
-                    LinearGradient(colors: [Color.black.opacity(0.2), Color.black.opacity(0.55)],
-                                   startPoint: .top, endPoint: .bottom)
+            GeometryReader { geo in
+                ZStack {
+                    Color(.secondarySystemGroupedBackground)
+                    if let background {
+                        Image(uiImage: background)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                        LinearGradient(colors: [Color.black.opacity(0.2), Color.black.opacity(0.55)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
                 }
+                .frame(width: geo.size.width, height: geo.size.height)
             }
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }

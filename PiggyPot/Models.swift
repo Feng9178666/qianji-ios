@@ -20,7 +20,9 @@ struct Wallet: Codable, Identifiable, Hashable {
     var createdAt: Date = Date()
     /// 首页要不要显示这个账户
     var isEnabled: Bool = true
-    /// 网络图标（支付宝、微信）
+    /// 内置图标资源名（支付宝、微信）
+    var iconAsset: String? = nil
+    /// 网络图标（备用）
     var iconURL: String? = nil
 }
 
