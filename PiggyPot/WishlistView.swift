@@ -1,7 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct WishlistView: View {
     @EnvironmentObject private var store: Store
+    @Environment(\.themeColor) private var theme
 
     @State private var showNew = false
     @State private var editing: Wish?
@@ -35,6 +37,7 @@ struct WishlistView: View {
                         showNew = true
                     } label: {
                         Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
                     }
                 }
             }
@@ -97,7 +100,7 @@ struct WishlistView: View {
                     .font(.system(size: 14, weight: .medium))
                     .padding(.horizontal, 18)
                     .frame(height: 36)
-                    .background(Color(hex: "F09E2E"), in: Capsule())
+                    .background(theme, in: Capsule())
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
@@ -111,73 +114,88 @@ struct WishlistView: View {
     // MARK: - 心愿卡片
 
     private func wishCard(_ wish: Wish) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let background = ImageStore.image(wish.backgroundImageName)
+        let onImage = background != nil
+        let primary: Color = onImage ? .white : .primary
+        let secondary: Color = onImage ? Color.white.opacity(0.85) : .secondary
+        let faint: Color = onImage ? Color.white.opacity(0.6) : Color(.tertiaryLabel)
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Circle()
-                    .fill(Color(hex: wish.colorHex).gradient)
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Image(systemName: wish.symbol)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
-                    )
+                WishIcon(wish: wish, size: 36)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(wish.title)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(primary)
                         .lineLimit(1)
                     Text(subtitle(wish))
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondary)
+                        .lineLimit(1)
                 }
 
                 Spacer(minLength: 8)
 
-                if !wish.isDone {
+                if wish.isDone {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.green)
+                } else {
                     Button {
                         depositing = wish
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 26))
-                            .foregroundStyle(Color(hex: wish.colorHex))
+                            .foregroundStyle(onImage ? Color.white : theme)
                     }
                     .buttonStyle(.plain)
-                } else {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.green)
                 }
             }
 
-            progressBar(wish)
+            progressBar(wish, onImage: onImage)
 
             HStack(alignment: .firstTextBaseline) {
                 Text(Money.text(wish.savedCents))
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .monospacedDigit()
+                    .foregroundStyle(primary)
                 Text("/ \(Money.text(wish.targetCents))")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(faint)
                 Spacer()
                 Text("\(Int(wish.progress * 100))%")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondary)
             }
         }
-        .card(padding: 14)
+        .padding(16)
+        .background {
+            ZStack {
+                Color(.secondarySystemGroupedBackground)
+                if let background {
+                    Image(uiImage: background)
+                        .resizable()
+                        .scaledToFill()
+                    LinearGradient(colors: [Color.black.opacity(0.2), Color.black.opacity(0.55)],
+                                   startPoint: .top, endPoint: .bottom)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .onTapGesture {
             editing = wish
         }
     }
 
-    private func progressBar(_ wish: Wish) -> some View {
+    private func progressBar(_ wish: Wish, onImage: Bool) -> some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule(style: .continuous)
-                    .fill(Color(.tertiarySystemFill))
+                    .fill(onImage ? Color.white.opacity(0.3) : Color(.tertiarySystemFill))
                 Capsule(style: .continuous)
-                    .fill(Color(hex: wish.colorHex).gradient)
+                    .fill(onImage ? Color.white : Color(hex: wish.colorHex))
                     .frame(width: max(6, geo.size.width * wish.progress))
             }
         }
@@ -189,7 +207,9 @@ struct WishlistView: View {
         var parts: [String] = []
         parts.append("还差 \(Money.text(wish.remainingCents))")
         if let deadline = wish.deadline {
-            let days = Calendar.current.dateComponents([.day], from: DateText.startOfDay(Date()), to: DateText.startOfDay(deadline)).day ?? 0
+            let days = Calendar.current.dateComponents([.day],
+                                                       from: DateText.startOfDay(Date()),
+                                                       to: DateText.startOfDay(deadline)).day ?? 0
             if days >= 0 {
                 parts.append(days == 0 ? "今天到期" : "还有 \(days) 天")
             } else {

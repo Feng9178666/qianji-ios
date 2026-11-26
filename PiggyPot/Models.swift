@@ -18,6 +18,10 @@ struct Wallet: Codable, Identifiable, Hashable {
     var colorHex: String
     var initialCents: Int = 0
     var createdAt: Date = Date()
+    /// 首页要不要显示这个账户
+    var isEnabled: Bool = true
+    /// 网络图标（支付宝、微信）
+    var iconURL: String? = nil
 }
 
 /// 一笔进出记录
@@ -48,6 +52,10 @@ struct Wish: Codable, Identifiable, Hashable {
     var deadline: Date? = nil
     var createdAt: Date = Date()
     var deposits: [WishDeposit] = []
+    /// 自定义图标（本地图片名）
+    var iconImageName: String? = nil
+    /// 自定义卡片背景（本地图片名）
+    var backgroundImageName: String? = nil
 
     var savedCents: Int { deposits.reduce(0) { $0 + $1.cents } }
     var remainingCents: Int { max(0, targetCents - savedCents) }

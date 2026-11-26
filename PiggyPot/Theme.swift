@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum Palette {
     struct Item: Identifiable, Hashable {
@@ -6,6 +7,13 @@ enum Palette {
         let name: String
         var id: String { hex }
     }
+
+    /// 主题色，设置页里可一键选
+    static let themes: [Item] = [
+        Item(hex: "F09E2E", name: "黄"),
+        Item(hex: "FF3B30", name: "红"),
+        Item(hex: "F472B6", name: "粉")
+    ]
 
     static let colors: [Item] = [
         Item(hex: "F09E2E", name: "琥珀"),
@@ -19,6 +27,8 @@ enum Palette {
         Item(hex: "8E8E93", name: "灰"),
         Item(hex: "5856D6", name: "靛")
     ]
+
+    static let `default` = "F09E2E"
 }
 
 enum Symbols {
@@ -36,10 +46,7 @@ enum Symbols {
         "car.fill",
         "house.fill"
     ]
-}
 
-extension Symbols {
-    /// 心愿单可选的图标
     static let wishItems: [String] = [
         "gift.fill",
         "headphones",
@@ -67,8 +74,79 @@ extension Color {
         let b = Double(value & 0xFF) / 255.0
         self.init(.sRGB, red: r, green: g, blue: b, opacity: 1)
     }
+
+    var hexString: String {
+        let ui = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ui.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "%02X%02X%02X",
+                      Int(round(r * 255)), Int(round(g * 255)), Int(round(b * 255)))
+    }
 }
 
 extension Wallet {
     var color: Color { Color(hex: colorHex) }
+}
+
+private struct ThemeColorKey: EnvironmentKey {
+    static let defaultValue = Color(hex: Palette.default)
+}
+
+extension EnvironmentValues {
+    var themeColor: Color {
+        get { self[ThemeColorKey.self] }
+        set { self[ThemeColorKey.self] = newValue }
+    }
+}
+
+/// 本地图片存储：心愿图标、心愿背景图
+enum ImageStore {
+    static var directory: URL {
+        let fm = FileManager.default
+        let base = (try? fm.url(for: .applicationSupportDirectory,
+                                in: .userDomainMask,
+                                appropriateFor: nil,
+                                create: true)) ?? fm.temporaryDirectory
+        let dir = base.appendingPathComponent("images", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static func save(_ data: Data) -> String? {
+        guard let image = UIImage(data: data) else { return nil }
+        // 压到不至于太大，照片也别超过 1600px
+        let scaled = image.scaled(maxSide: 1600)
+        guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return nil }
+        let name = UUID().uuidString
+        let url = directory.appendingPathComponent(name + ".jpg")
+        do {
+            try jpeg.write(to: url, options: .atomic)
+            return name
+        } catch {
+            return nil
+        }
+    }
+
+    static func image(_ name: String?) -> UIImage? {
+        guard let name, !name.isEmpty else { return nil }
+        return UIImage(contentsOfFile: directory.appendingPathComponent(name + ".jpg").path)
+    }
+
+    static func delete(_ name: String?) {
+        guard let name, !name.isEmpty else { return }
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(name + ".jpg"))
+    }
+}
+
+extension UIImage {
+    func scaled(maxSide: CGFloat) -> UIImage {
+        let longest = max(size.width, size.height)
+        guard longest > maxSide else { return self }
+        let scale = maxSide / longest
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
 }

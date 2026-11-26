@@ -26,7 +26,7 @@ final class Store: ObservableObject {
                                in: .userDomainMask,
                                appropriateFor: nil,
                                create: true)) ?? fm.temporaryDirectory
-        fileURL = dir.appendingPathComponent("qianji.json")
+        fileURL = dir.appendingPathComponent("qianji2.json")
         load()
     }
 
@@ -65,10 +65,16 @@ final class Store: ObservableObject {
 
     private func seed() {
         wallets = [
-            Wallet(name: "支付宝", symbol: "wallet.pass.fill", colorHex: "3B82F6", initialCents: 0),
-            Wallet(name: "微信", symbol: "bubble.left.fill", colorHex: "34C759", initialCents: 0),
-            Wallet(name: "银行卡", symbol: "creditcard.fill", colorHex: "8E8E93", initialCents: 0),
-            Wallet(name: "现金", symbol: "banknote", colorHex: "F0A22E", initialCents: 0)
+            Wallet(name: "支付宝", symbol: "wallet.pass.fill", colorHex: "1677FF",
+                   initialCents: 0, isEnabled: false,
+                   iconURL: "https://api.6778.top/app/zfb.png"),
+            Wallet(name: "微信", symbol: "bubble.left.fill", colorHex: "07C160",
+                   initialCents: 0, isEnabled: false,
+                   iconURL: "https://api.6778.top/app/wx.png"),
+            Wallet(name: "银行卡", symbol: "creditcard.fill", colorHex: "8E8E93",
+                   initialCents: 0, isEnabled: false),
+            Wallet(name: "现金", symbol: "banknote", colorHex: "F09E2E",
+                   initialCents: 0, isEnabled: false)
         ]
         entries = []
         wishes = []
@@ -86,7 +92,7 @@ final class Store: ObservableObject {
     }
 
     var totalCents: Int {
-        wallets.reduce(0) { $0 + balance($1.id) }
+        enabledWallets.reduce(0) { $0 + balance($1.id) }
     }
 
     var monthIncomeCents: Int {
@@ -96,6 +102,8 @@ final class Store: ObservableObject {
     var monthExpenseCents: Int {
         entries.filter { $0.kind == .expense && isThisMonth($0.date) }.reduce(0) { $0 + $1.cents }
     }
+
+    var enabledWallets: [Wallet] { wallets.filter { $0.isEnabled } }
 
     func entries(for walletID: UUID?) -> [Entry] {
         guard let walletID else { return entries }
@@ -134,6 +142,13 @@ final class Store: ObservableObject {
     }
 
     // MARK: - 账户
+
+    func toggleWallet(_ wallet: Wallet) {
+        if let index = wallets.firstIndex(where: { $0.id == wallet.id }) {
+            wallets[index].isEnabled.toggle()
+            save()
+        }
+    }
 
     func addWallet(_ wallet: Wallet) {
         wallets.append(wallet)

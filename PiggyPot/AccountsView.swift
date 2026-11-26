@@ -2,121 +2,88 @@ import SwiftUI
 
 struct AccountsView: View {
     @EnvironmentObject private var store: Store
-    @AppStorage("appearance") private var appearance = 0
+    @Environment(\.themeColor) private var theme
 
-    @State private var editingMode: EditMode = .inactive
+    @State private var editing: Wallet?
     @State private var showNew = false
-
-    private var isEditing: Bool { editingMode.isEditing }
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         List {
             Section {
-                if store.wallets.isEmpty {
-                    Text("还没有账户")
-                        .foregroundStyle(.secondary)
-                }
                 ForEach(store.wallets) { wallet in
-                    NavigationLink {
-                        AccountEditorView(wallet: wallet)
-                            .environmentObject(store)
-                    } label: {
+                    HStack(spacing: 12) {
                         HStack(spacing: 12) {
                             WalletBadge(wallet: wallet, size: 32)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(wallet.name)
                                     .font(.system(size: 16))
-                                Text("初始 \(Money.text(wallet.initialCents)) · \(countText(wallet))")
+                                Text("\(Money.text(store.balance(wallet.id))) · \(countText(wallet))")
                                     .font(.system(size: 12))
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Text(Money.text(store.balance(wallet.id)))
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 8)
                         }
-                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editing = wallet
+                        }
+
+                        Toggle("", isOn: Binding(
+                            get: { wallet.isEnabled },
+                            set: { _ in store.toggleWallet(wallet) }
+                        ))
+                        .labelsHidden()
+                        .tint(theme)
                     }
+                    .padding(.vertical, 2)
                 }
                 .onDelete(perform: delete)
                 .onMove(perform: store.moveWallets)
             } header: {
                 Text("账户")
             } footer: {
-                Text("删除账户会一并删掉这个账户下的记录。")
-            }
-
-            Section("外观") {
-                Picker("外观", selection: $appearance) {
-                    Text("自动").tag(0)
-                    Text("浅色").tag(1)
-                    Text("深色").tag(2)
-                }
-                .pickerStyle(.segmented)
+                Text("打开开关才会出现在首页和记账里。关掉只是隐藏，记录不会丢。")
             }
 
             Section {
-                if let url = URL(string: "https://qm.qq.com/q/Ximw7wvyGA") {
-                    Link(destination: url) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "person.3.fill")
-                                .font(.system(size: 15))
-                                .foregroundStyle(.white)
-                                .frame(width: 29, height: 29)
-                                .background(Color(hex: "12B7F5"), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                            Text("添加官方群")
-                                .font(.system(size: 17))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.vertical, 2)
+                Button {
+                    showNew = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(theme)
+                            .frame(width: 29, height: 29)
+                            .background(theme.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        Text("新增账户")
+                            .font(.system(size: 17))
+                            .foregroundStyle(.primary)
                     }
-                }
-            }
-
-            Section {
-                HStack {
-                    Text("版本")
-                    Spacer()
-                    Text(versionText)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    .padding(.vertical, 2)
                 }
             }
         }
-        .environment(\.editMode, $editingMode)
+        .environment(\.editMode, $editMode)
         .navigationTitle("账户管理")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showNew = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-            ToolbarItem(placement: .topBarLeading) {
-                Button(isEditing ? "完成" : "编辑") {
+                Button(editMode.isEditing ? "完成" : "编辑") {
                     withAnimation {
-                        editingMode = isEditing ? .inactive : .active
+                        editMode = editMode.isEditing ? .inactive : .active
                     }
                 }
             }
+        }
+        .sheet(item: $editing) { wallet in
+            AccountEditorView(wallet: wallet)
+                .environmentObject(store)
         }
         .sheet(isPresented: $showNew) {
             AccountEditorView(wallet: nil)
                 .environmentObject(store)
         }
-    }
-
-    private var versionText: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
     }
 
     private func countText(_ wallet: Wallet) -> String {

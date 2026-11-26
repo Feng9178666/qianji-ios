@@ -70,12 +70,12 @@ struct AddEntryView: View {
                 }
 
                 Section {
-                    if store.wallets.isEmpty {
-                        Text("先去账户管理添加一个账户")
+                    if store.enabledWallets.isEmpty {
+                        Text("先去设置里开启一个账户")
                             .foregroundStyle(.secondary)
                     } else {
                         Picker("从哪来 / 到哪去", selection: $walletID) {
-                            ForEach(store.wallets) { wallet in
+                            ForEach(store.enabledWallets) { wallet in
                                 Text(wallet.name).tag(Optional(wallet.id))
                             }
                         }
@@ -122,7 +122,7 @@ struct AddEntryView: View {
             note = editing.note
             date = editing.date
         } else {
-            walletID = store.wallets.first?.id
+            walletID = store.enabledWallets.first?.id
             amountFocused = true
         }
     }

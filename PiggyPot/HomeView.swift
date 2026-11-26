@@ -2,9 +2,12 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var store: Store
+    @Environment(\.themeColor) private var theme
+
     @State private var showAdd = false
     @State private var selectedWallet: Wallet?
     @State private var showAll = false
+    @State private var showAccounts = false
 
     private var recent: [Entry] { Array(store.entries.prefix(6)) }
 
@@ -13,13 +16,20 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     totalCard
-                    walletsGrid
-                    BlockTitle(title: "最近记录", trailing: store.entries.isEmpty ? nil : "共 \(store.entries.count) 笔")
+
+                    if store.enabledWallets.isEmpty {
+                        emptyWallets
+                    } else {
+                        walletsGrid
+                    }
+
+                    BlockTitle(title: "最近记录",
+                               trailing: store.entries.isEmpty ? nil : "共 \(store.entries.count) 笔")
                     recentCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
-                .padding(.bottom, 12)
+                .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
             .background(Color(.systemGroupedBackground))
@@ -27,16 +37,17 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        AccountsView()
+                    Button {
+                        showAdd = true
                     } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 15, weight: .medium))
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 30, height: 30)
+                            .background(theme, in: Circle())
+                            .foregroundStyle(.white)
                     }
+                    .buttonStyle(.plain)
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                addBar
             }
             .sheet(isPresented: $showAdd) {
                 AddEntryView()
@@ -48,6 +59,10 @@ struct HomeView: View {
             }
             .navigationDestination(isPresented: $showAll) {
                 HistoryView(wallet: nil)
+                    .environmentObject(store)
+            }
+            .navigationDestination(isPresented: $showAccounts) {
+                AccountsView()
                     .environmentObject(store)
             }
         }
@@ -62,7 +77,7 @@ struct HomeView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(store.wallets.count) 个账户")
+                Text("\(store.enabledWallets.count) 个账户")
                     .font(.system(size: 12))
                     .foregroundStyle(.tertiary)
             }
@@ -95,31 +110,55 @@ struct HomeView: View {
 
     // MARK: - 账户
 
-    private var walletsGrid: some View {
+    private var emptyWallets: some View {
         VStack(spacing: 10) {
-            if store.wallets.isEmpty {
-                EmptyHint(symbol: "wallet.pass", title: "还没有账户", detail: "右上角进账户管理，先把支付宝、微信加上")
-                    .card()
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
-                                    GridItem(.flexible(), spacing: 10)],
-                          spacing: 10) {
-                    ForEach(store.wallets) { wallet in
-                        Button {
-                            selectedWallet = wallet
-                        } label: {
-                            walletCard(wallet)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            Image(systemName: "wallet.pass")
+                .font(.system(size: 30, weight: .light))
+                .foregroundStyle(.tertiary)
+            Text("还没有开启账户")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+            Text("支付宝、微信、银行卡、现金默认是关的，\n开哪个就显示哪个。")
+                .font(.system(size: 13))
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                showAccounts = true
+            } label: {
+                Text("去开启")
+                    .font(.system(size: 14, weight: .medium))
+                    .padding(.horizontal, 20)
+                    .frame(height: 36)
+                    .background(theme, in: Capsule())
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .card()
+    }
+
+    private var walletsGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
+                            GridItem(.flexible(), spacing: 10)],
+                  spacing: 10) {
+            ForEach(store.enabledWallets) { wallet in
+                Button {
+                    selectedWallet = wallet
+                } label: {
+                    walletCard(wallet)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
 
     private func walletCard(_ wallet: Wallet) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 WalletBadge(wallet: wallet, size: 22)
                 Text(wallet.name)
                     .font(.system(size: 13, weight: .medium))
@@ -143,7 +182,7 @@ struct HomeView: View {
     private var recentCard: some View {
         VStack(spacing: 0) {
             if recent.isEmpty {
-                EmptyHint(symbol: "tray", title: "还没有记录", detail: "点下面的「记一笔」开始")
+                EmptyHint(symbol: "tray", title: "还没有记录", detail: "点右上角的 + 记一笔")
             } else {
                 ForEach(Array(recent.enumerated()), id: \.element.id) { index, entry in
                     EntryRow(entry: entry, wallet: store.wallet(entry.walletID))
@@ -164,7 +203,7 @@ struct HomeView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
-                        .foregroundStyle(Color(hex: "F09E2E"))
+                        .foregroundStyle(theme)
                         .padding(.vertical, 12)
                         .contentShape(Rectangle())
                     }
@@ -173,32 +212,5 @@ struct HomeView: View {
             }
         }
         .card(padding: 16)
-    }
-
-    // MARK: - 底部按钮
-
-    private var addBar: some View {
-        Button {
-            showAdd = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("记一笔")
-                    .font(.system(size: 16, weight: .semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color(hex: "F09E2E"))
-            )
-            .foregroundStyle(.white)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
-        .background(Color(.systemGroupedBackground))
     }
 }

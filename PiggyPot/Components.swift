@@ -1,14 +1,32 @@
 import SwiftUI
+import UIKit
 
-/// 账户图标：彩色圆 + 白色符号
+/// 账户图标：有网络图标用网络图，否则彩色圆 + 符号
 struct WalletBadge: View {
     let wallet: Wallet
     var size: CGFloat = 26
 
     var body: some View {
+        Group {
+            if let text = wallet.iconURL, let url = URL(string: text), !text.isEmpty {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        fallback
+                    }
+                }
+            } else {
+                fallback
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+    }
+
+    private var fallback: some View {
         Circle()
             .fill(wallet.color.gradient)
-            .frame(width: size, height: size)
             .overlay(
                 Image(systemName: wallet.symbol)
                     .font(.system(size: size * 0.5, weight: .semibold))
@@ -17,7 +35,30 @@ struct WalletBadge: View {
     }
 }
 
-/// 卡片底：系统分组色 + 20 圆角
+/// 心愿图标：自定义图片优先，否则彩色圆 + 符号
+struct WishIcon: View {
+    let wish: Wish
+    var size: CGFloat = 36
+
+    var body: some View {
+        Group {
+            if let image = ImageStore.image(wish.iconImageName) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Circle()
+                    .fill(Color(hex: wish.colorHex).gradient)
+                    .overlay(
+                        Image(systemName: wish.symbol)
+                            .font(.system(size: size * 0.46, weight: .semibold))
+                            .foregroundStyle(.white)
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+    }
+}
+
 struct CardBackground: ViewModifier {
     var padding: CGFloat = 16
     var corner: CGFloat = 20
@@ -39,7 +80,6 @@ extension View {
     }
 }
 
-/// 区块小标题
 struct BlockTitle: View {
     let title: String
     var trailing: String? = nil
@@ -61,7 +101,6 @@ struct BlockTitle: View {
     }
 }
 
-/// 一条记录
 struct EntryRow: View {
     let entry: Entry
     let wallet: Wallet?
@@ -100,7 +139,6 @@ struct EntryRow: View {
     }
 }
 
-/// 空状态
 struct EmptyHint: View {
     let symbol: String
     let title: String
