@@ -21,20 +21,27 @@ jobs:
           xcodebuild -version
 
       - name: Install XcodeGen
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           set -e
           if command -v xcodegen >/dev/null 2>&1; then
-            echo "XCODEGEN=xcodegen" >> "$GITHUB_ENV"; exit 0
+            echo "XCODEGEN=xcodegen" >> "$GITHUB_ENV"
+            xcodegen --version
+            exit 0
           fi
-          URL=$(curl -fsSL https://api.github.com/repos/yonaskolb/XcodeGen/releases/latest \
-            | jq -r '.assets[] | select(.name | test("xcodegen.*\\.zip")) | .browser_download_url' | head -1)
-          curl -fsSL -o /tmp/xcodegen.zip "$URL"
-          unzip -q -o /tmp/xcodegen.zip -d /tmp/xg
-          BIN=$(find /tmp/xg -type f -name xcodegen | head -1)
-          chmod +x "$BIN"
-          echo "XCODEGEN=$BIN" >> "$GITHUB_ENV"
-          "$BIN" --version
+          for V in 2.44.1 2.43.0 2.42.0; do
+            if curl -fsSL -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/$V/xcodegen.zip"; then
+              unzip -q -o /tmp/xcodegen.zip -d /tmp/xg
+              BIN=$(find /tmp/xg -type f -name xcodegen | head -1)
+              chmod +x "$BIN"
+              echo "XCODEGEN=$BIN" >> "$GITHUB_ENV"
+              "$BIN" --version
+              exit 0
+            fi
+            echo "version $V failed, trying next"
+          done
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+          echo "XCODEGEN=xcodegen" >> "$GITHUB_ENV"
 
       - name: Generate app icon
         run: python3 tools/mkicon.py
