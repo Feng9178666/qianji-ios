@@ -65,12 +65,14 @@ struct WishIcon: View {
 }
 
 struct CardBackground: ViewModifier {
-    var padding: CGFloat = 16
+    var hPad: CGFloat = 16
+    var vPad: CGFloat = 16
     var corner: CGFloat = 20
 
     func body(content: Content) -> some View {
         content
-            .padding(padding)
+            .padding(.horizontal, hPad)
+            .padding(.vertical, vPad)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
@@ -81,7 +83,11 @@ struct CardBackground: ViewModifier {
 
 extension View {
     func card(padding: CGFloat = 16, corner: CGFloat = 20) -> some View {
-        modifier(CardBackground(padding: padding, corner: corner))
+        modifier(CardBackground(hPad: padding, vPad: padding, corner: corner))
+    }
+
+    func card(hPad: CGFloat, vPad: CGFloat, corner: CGFloat = 20) -> some View {
+        modifier(CardBackground(hPad: hPad, vPad: vPad, corner: corner))
     }
 }
 
@@ -102,7 +108,7 @@ struct BlockTitle: View {
             }
         }
         .padding(.horizontal, 4)
-        .padding(.top, 2)
+        .padding(.top, 10)
     }
 }
 
@@ -133,7 +139,7 @@ struct EntryRow: View {
                 .foregroundStyle(entry.kind == .income ? Color.green : Color.primary)
         }
         .frame(minHeight: 44)
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
     }
 

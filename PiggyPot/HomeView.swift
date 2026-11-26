@@ -39,7 +39,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 16) {
                     totalCard
 
                     if !store.enabledWallets.isEmpty {
@@ -230,7 +230,7 @@ struct HomeView: View {
                 }
             }
         }
-        .card(padding: 14)
+        .card(hPad: 14, vPad: 6)
     }
 
     private func wishRow(_ wish: Wish) -> some View {
@@ -306,6 +306,6 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
-        .card(padding: 14)
+        .card(hPad: 14, vPad: 6)
     }
 }
