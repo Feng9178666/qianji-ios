@@ -58,6 +58,8 @@ struct Wish: Codable, Identifiable, Hashable {
     var iconImageName: String? = nil
     /// 自定义卡片背景（本地图片名）
     var backgroundImageName: String? = nil
+    /// 是否显示在首页
+    var showsOnHome: Bool = true
 
     var savedCents: Int { deposits.reduce(0) { $0 + $1.cents } }
     var remainingCents: Int { max(0, targetCents - savedCents) }

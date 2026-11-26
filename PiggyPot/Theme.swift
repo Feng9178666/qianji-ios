@@ -140,6 +140,29 @@ enum ImageStore {
     }
 }
 
+/// 网络图标本地缓存：只下载一次，之后都读本地
+enum RemoteIconCache {
+    static var directory: URL { ImageStore.directory }
+
+    private static func file(_ key: String) -> URL {
+        let safe = key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "icon"
+        return directory.appendingPathComponent("remote-" + safe + ".img")
+    }
+
+    static func cached(_ key: String) -> UIImage? {
+        guard let data = try? Data(contentsOf: file(key)) else { return nil }
+        return UIImage(data: data)
+    }
+
+    static func load(_ url: URL, key: String) async -> UIImage? {
+        if let image = cached(key) { return image }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = UIImage(data: data) else { return nil }
+        try? data.write(to: file(key), options: .atomic)
+        return image
+    }
+}
+
 extension UIImage {
     func scaled(maxSide: CGFloat) -> UIImage {
         let longest = max(size.width, size.height)

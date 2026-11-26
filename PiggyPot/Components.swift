@@ -6,24 +6,27 @@ struct WalletBadge: View {
     let wallet: Wallet
     var size: CGFloat = 26
 
+    @State private var remoteImage: UIImage?
+
     var body: some View {
         Group {
             if let asset = wallet.iconAsset, let image = UIImage(named: asset) {
                 Image(uiImage: image).resizable().scaledToFill()
-            } else if let text = wallet.iconURL, let url = URL(string: text), !text.isEmpty {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        fallback
-                    }
-                }
+            } else if let remoteImage {
+                Image(uiImage: remoteImage).resizable().scaledToFill()
             } else {
                 fallback
             }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+        .task(id: wallet.iconURL) {
+            guard wallet.iconAsset == nil,
+                  let text = wallet.iconURL,
+                  let url = URL(string: text),
+                  !text.isEmpty else { return }
+            remoteImage = await RemoteIconCache.load(url, key: text)
+        }
     }
 
     private var fallback: some View {
@@ -99,7 +102,7 @@ struct BlockTitle: View {
             }
         }
         .padding(.horizontal, 4)
-        .padding(.top, 6)
+        .padding(.top, 2)
     }
 }
 

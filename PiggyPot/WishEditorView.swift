@@ -19,6 +19,7 @@ struct WishEditorView: View {
     @State private var backgroundName: String?
     @State private var iconItem: PhotosPickerItem?
     @State private var backgroundItem: PhotosPickerItem?
+    @State private var showsOnHome: Bool
     @State private var showDelete = false
 
     init(wish: Wish?) {
@@ -31,6 +32,7 @@ struct WishEditorView: View {
         _deadline = State(initialValue: wish?.deadline ?? Date().addingTimeInterval(86400 * 30))
         _iconName = State(initialValue: wish?.iconImageName)
         _backgroundName = State(initialValue: wish?.backgroundImageName)
+        _showsOnHome = State(initialValue: wish?.showsOnHome ?? true)
     }
 
     private var targetCents: Int? {
@@ -164,12 +166,13 @@ struct WishEditorView: View {
                 }
 
                 Section {
+                    Toggle("显示在首页", isOn: $showsOnHome)
                     Toggle("设定日期", isOn: $hasDeadline.animation())
                     if hasDeadline {
                         DatePicker("目标日期", selection: $deadline, displayedComponents: .date)
                     }
                 } footer: {
-                    Text("可选。设了会显示还剩几天。")
+                    Text("首页那个心愿卡片开关就是第一项。日期可选，设了会显示还剩几天。")
                 }
 
                 if let original, !original.deposits.isEmpty {
@@ -273,6 +276,7 @@ struct WishEditorView: View {
             wish.deadline = hasDeadline ? deadline : nil
             wish.iconImageName = iconName
             wish.backgroundImageName = backgroundName
+            wish.showsOnHome = showsOnHome
             store.updateWish(wish)
         } else {
             store.addWish(Wish(title: trimmed,
@@ -281,7 +285,8 @@ struct WishEditorView: View {
                                colorHex: colorHex,
                                deadline: hasDeadline ? deadline : nil,
                                iconImageName: iconName,
-                               backgroundImageName: backgroundName))
+                               backgroundImageName: backgroundName,
+                               showsOnHome: showsOnHome))
         }
         dismiss()
     }

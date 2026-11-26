@@ -203,6 +203,28 @@ final class Store: ObservableObject {
         save()
     }
 
+    var homeWishes: [Wish] { wishes.filter { $0.showsOnHome } }
+
+    func exportData() -> Data? {
+        let snapshot = Snapshot(wallets: wallets, entries: entries, wishes: wishes)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return try? encoder.encode(snapshot)
+    }
+
+    @discardableResult
+    func importData(_ data: Data) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let snapshot = try? decoder.decode(Snapshot.self, from: data) else { return false }
+        wallets = snapshot.wallets
+        entries = snapshot.entries.sorted { $0.date > $1.date }
+        wishes = snapshot.wishes
+        save()
+        return true
+    }
+
     var totalWishSaved: Int { wishes.reduce(0) { $0 + $1.savedCents } }
     var totalWishTarget: Int { wishes.reduce(0) { $0 + $1.targetCents } }
 

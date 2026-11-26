@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var store: Store
@@ -9,8 +10,16 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearance = 0
     @AppStorage("themeHex") private var themeHex = Palette.default
     @AppStorage("homeCardImage") private var cardImageName = ""
+    @AppStorage("avatarImage") private var avatarName = ""
 
     @State private var cardItem: PhotosPickerItem?
+    @State private var avatarItem: PhotosPickerItem?
+    @State private var exportDocument: JSONDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var pendingImport: Data?
+    @State private var showImportConfirm = false
+    @State private var message: String?
 
     private var customColor: Binding<Color> {
         Binding(
@@ -23,20 +32,78 @@ struct SettingsView: View {
         ImageStore.image(cardImageName.isEmpty ? nil : cardImageName)
     }
 
+    private var avatarImage: UIImage? {
+        ImageStore.image(avatarName.isEmpty ? nil : avatarName)
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    HStack(spacing: 14) {
+                        PhotosPicker(selection: $avatarItem, matching: .images) {
+                            ZStack {
+                                if let avatarImage {
+                                    Image(uiImage: avatarImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                } else {
+                                    Color(.tertiarySystemFill)
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 26, weight: .light))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(width: 60, height: 60)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("记一笔")
+                                .font(.system(size: 19, weight: .semibold))
+                            Text("点左边的头像可以换一张")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                Section {
+                    NavigationLink {
+                        AccountsView()
+                            .environmentObject(store)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "wallet.pass.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 29, height: 29)
+                                .background(theme, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("账户管理")
+                                    .font(.system(size: 17))
+                                Text("\(store.enabledWallets.count)/\(store.wallets.count) 已开启")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } header: {
+                    Text("记账")
+                }
+
                 Section("外观") {
-                    Picker("外观", selection: $appearance) {
+                    Picker("模式", selection: $appearance) {
                         Text("自动").tag(0)
                         Text("浅色").tag(1)
                         Text("深色").tag(2)
                     }
                     .pickerStyle(.segmented)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                }
 
-                Section {
                     HStack(spacing: 14) {
                         ForEach(Palette.themes) { item in
                             Button {
@@ -44,10 +111,10 @@ struct SettingsView: View {
                             } label: {
                                 Circle()
                                     .fill(Color(hex: item.hex))
-                                    .frame(width: 34, height: 34)
+                                    .frame(width: 32, height: 32)
                                     .overlay(
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 14, weight: .bold))
+                                            .font(.system(size: 13, weight: .bold))
                                             .foregroundStyle(.white)
                                             .opacity(themeHex.uppercased() == item.hex.uppercased() ? 1 : 0)
                                     )
@@ -56,13 +123,9 @@ struct SettingsView: View {
                         }
                         Spacer()
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 2)
 
                     ColorPicker("自定义颜色", selection: customColor, supportsOpacity: false)
-                } header: {
-                    Text("主题色")
-                } footer: {
-                    Text("按钮、进度条、高亮都用这个颜色。")
                 }
 
                 Section {
@@ -75,9 +138,8 @@ struct SettingsView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         PhotosPicker(selection: $cardItem, matching: .images) {
-                            Label(cardImageName.isEmpty ? "选一张卡片背景" : "换一张背景",
-                                  systemImage: "photo.on.rectangle.angled")
-                                .font(.system(size: 15))
+                            Text(cardImageName.isEmpty ? "给首页卡片选张背景" : "换一张背景")
+                                .font(.system(size: 16))
                         }
                         Spacer()
                         if !cardImageName.isEmpty {
@@ -92,50 +154,43 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("首页卡片")
-                } footer: {
-                    Text("给总资产卡片换张底图，不选就用默认的。")
                 }
 
                 Section {
-                    NavigationLink {
-                        AccountsView()
-                            .environmentObject(store)
+                    Button {
+                        exportBackup()
                     } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "wallet.pass.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 29, height: 29)
-                                .background(theme, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        rowLabel("导出数据", symbol: "square.and.arrow.up", color: .blue)
+                    }
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("账户管理")
-                                    .font(.system(size: 17))
-                                Text("开启要用的账户 · \(store.enabledWallets.count)/\(store.wallets.count) 已开启")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 2)
+                    Button {
+                        showImporter = true
+                    } label: {
+                        rowLabel("导入数据", symbol: "square.and.arrow.down", color: .green)
+                    }
+                } header: {
+                    Text("数据")
+                } footer: {
+                    if let message {
+                        Text(message)
+                    } else {
+                        Text("导出成一个 JSON 文件；导入会用文件里的内容覆盖现在的记录。")
                     }
                 }
 
-                Section {
+                Section("社区") {
                     if let url = URL(string: "https://qm.qq.com/q/Ximw7wvyGA") {
                         Link(destination: url) {
                             HStack(spacing: 12) {
                                 Image(systemName: "bubble.left.and.bubble.right.fill")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .frame(width: 29, height: 29)
                                     .background(Color(hex: "2CA5E0"), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
                                 Text("加入官方群")
                                     .font(.system(size: 17))
                                     .foregroundStyle(.primary)
-
                                 Spacer()
-
                                 Image(systemName: "arrow.up.forward")
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(.tertiary)
@@ -146,25 +201,8 @@ struct SettingsView: View {
                 }
 
                 Section("关于") {
-                    HStack {
-                        Text("版本")
-                        Spacer()
-                        Text(versionText)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                    HStack {
-                        Text("应用")
-                        Spacer()
-                        Text("记一笔")
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Text("开发者")
-                        Spacer()
-                        Text("Lxp")
-                            .foregroundStyle(.secondary)
-                    }
+                    infoRow("版本", versionText)
+                    infoRow("开发者", "Lxp")
                     if let url = URL(string: "https://ac.6778.top") {
                         Link(destination: url) {
                             HStack {
@@ -192,10 +230,117 @@ struct SettingsView: View {
                     }
                 }
             }
+            .onChange(of: avatarItem) { _, item in
+                guard let item else { return }
+                Task { @MainActor in
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let name = ImageStore.save(data) {
+                        avatarName = name
+                    }
+                }
+            }
+            .fileExporter(isPresented: $showExporter,
+                          document: exportDocument,
+                          contentType: .json,
+                          defaultFilename: "记一笔-备份") { result in
+                switch result {
+                case .success:
+                    message = "已导出"
+                case .failure:
+                    message = "导出失败"
+                }
+            }
+            .fileImporter(isPresented: $showImporter,
+                          allowedContentTypes: [.json],
+                          allowsMultipleSelection: false) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    let accessed = url.startAccessingSecurityScopedResource()
+                    defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                    if let data = try? Data(contentsOf: url) {
+                        pendingImport = data
+                        showImportConfirm = true
+                    } else {
+                        message = "这个文件读不了"
+                    }
+                case .failure:
+                    message = "没有选文件"
+                }
+            }
+            .confirmationDialog("用这份备份覆盖现在的记录？",
+                                isPresented: $showImportConfirm,
+                                titleVisibility: .visible) {
+                Button("覆盖导入", role: .destructive) {
+                    if let data = pendingImport {
+                        message = store.importData(data) ? "导入好了" : "文件格式不对"
+                    }
+                    pendingImport = nil
+                }
+                Button("取消", role: .cancel) {
+                    pendingImport = nil
+                }
+            }
         }
+    }
+
+    private func rowLabel(_ title: String, symbol: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 29, height: 29)
+                .background(color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            Text(title)
+                .font(.system(size: 17))
+                .foregroundStyle(.primary)
+            Spacer()
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func infoRow(_ key: String, _ value: String) -> some View {
+        HStack {
+            Text(key)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    private func exportBackup() {
+        guard let data = store.exportData() else {
+            message = "导出失败"
+            return
+        }
+        exportDocument = JSONDocument(data: data)
+        showExporter = true
+        message = nil
     }
 
     private var versionText: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+}
+
+struct JSONDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+
+    var data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let contents = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        data = contents
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }

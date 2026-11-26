@@ -1,6 +1,21 @@
 import SwiftUI
 import UIKit
 
+/// 总资产数字滚动
+struct AnimatedMoney: View, Animatable {
+    var value: Double
+
+    var animatableData: Double {
+        get { value }
+        set { value = newValue }
+    }
+
+    var body: some View {
+        Text(Money.text(Int(value.rounded())))
+            .monospacedDigit()
+    }
+}
+
 struct HomeView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.themeColor) private var theme
@@ -9,11 +24,12 @@ struct HomeView: View {
     @State private var showAdd = false
     @State private var selectedWallet: Wallet?
     @State private var showAll = false
-    @State private var showAddWish = false
     @State private var depositWish: Wish?
     @State private var editWish: Wish?
+    @State private var animatedTotal: Double = 0
 
     private var recent: [Entry] { Array(store.entries.prefix(6)) }
+    private var wishes: [Wish] { store.homeWishes }
 
     private var totalCardImage: UIImage? {
         ImageStore.image(cardImageName.isEmpty ? nil : cardImageName)
@@ -22,15 +38,17 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     totalCard
 
                     if !store.enabledWallets.isEmpty {
                         walletsGrid
                     }
 
-                    BlockTitle(title: "心愿")
-                    wishSection
+                    if !wishes.isEmpty {
+                        BlockTitle(title: "心愿")
+                        wishSection
+                    }
 
                     if !recent.isEmpty {
                         BlockTitle(title: "最近记录", trailing: "共 \(store.entries.count) 笔")
@@ -51,18 +69,15 @@ struct HomeView: View {
                         showAdd = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(theme)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, theme)
+                            .font(.system(size: 25))
                     }
                     .buttonStyle(.plain)
                 }
             }
             .sheet(isPresented: $showAdd) {
                 AddEntryView()
-                    .environmentObject(store)
-            }
-            .sheet(isPresented: $showAddWish) {
-                WishEditorView(wish: nil)
                     .environmentObject(store)
             }
             .sheet(item: $depositWish) { wish in
@@ -80,6 +95,17 @@ struct HomeView: View {
             .navigationDestination(isPresented: $showAll) {
                 HistoryView(wallet: nil)
                     .environmentObject(store)
+            }
+            .onAppear {
+                animatedTotal = 0
+                withAnimation(.easeOut(duration: 0.9)) {
+                    animatedTotal = Double(store.totalCents)
+                }
+            }
+            .onChange(of: store.totalCents) { _, newValue in
+                withAnimation(.easeOut(duration: 0.55)) {
+                    animatedTotal = Double(newValue)
+                }
             }
         }
     }
@@ -103,9 +129,8 @@ struct HomeView: View {
                     .foregroundStyle(faint)
             }
 
-            Text(Money.text(store.totalCents))
+            AnimatedMoney(value: animatedTotal)
                 .font(.system(size: 40, weight: .bold, design: .rounded))
-                .monospacedDigit()
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .foregroundStyle(primary)
@@ -190,35 +215,21 @@ struct HomeView: View {
 
     private var wishSection: some View {
         VStack(spacing: 0) {
-            ForEach(store.wishes) { wish in
+            ForEach(Array(wishes.enumerated()), id: \.element.id) { index, wish in
                 wishRow(wish)
-                Divider().padding(.leading, 44)
-            }
-            Button {
-                showAddWish = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(theme)
-                    Text("添加心愿")
-                        .font(.system(size: 15))
-                        .foregroundStyle(theme)
-                    Spacer()
+                if index < wishes.count - 1 {
+                    Divider().padding(.leading, 44)
                 }
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
         }
-        .card(padding: 16)
+        .card(padding: 14)
     }
 
     private func wishRow(_ wish: Wish) -> some View {
         HStack(spacing: 12) {
             WishIcon(wish: wish, size: 32)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
                     Text(wish.title)
                         .font(.system(size: 15))
@@ -243,13 +254,14 @@ struct HomeView: View {
                     depositWish = wish
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(theme)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, theme)
+                        .font(.system(size: 23))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
             editWish = wish
@@ -286,6 +298,6 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
-        .card(padding: 16)
+        .card(padding: 14)
     }
 }
